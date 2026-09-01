@@ -1,0 +1,15 @@
+{
+  "name": "FitPower - Do Sofá aos 5km",
+  "short_name": "FitPower",
+  "description": "Treinador de corrida para iniciantes. Do sofá aos 5km em 30 dias.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FAF9F6",
+  "theme_color": "#FF6B35",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
