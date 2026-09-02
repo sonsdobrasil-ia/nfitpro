@@ -174,9 +174,19 @@ function AdminEbooks() {
     try {
       const { pages, cover } = await extractPdfInfo(file);
       const [pdfPath, coverPath] = await Promise.all([uploadPdf(file), uploadCover(cover)]);
-      if (editing.pdf_url) await deletePdf(editing.pdf_url);
-      if (editing.capa_url) await deleteCover(editing.capa_url);
-      setEditing({ ...editing, pdf_url: pdfPath, capa_url: coverPath, paginas: pages, html_url: null });
+      const oldPdf = editing.pdf_url;
+      const oldCover = editing.capa_url;
+      if (oldPdf) await deletePdf(oldPdf);
+      if (oldCover) await deleteCover(oldCover);
+      if (editing.id) await deleteEbookHtml(editing.id);
+      setEditing({
+        ...editing,
+        pdf_url: pdfPath,
+        capa_url: coverPath,
+        paginas: pages,
+        html_url: null,
+        html_preview_url: null,
+      });
       toast.success(`PDF enviado — ${pages} páginas, capa extraída da 1ª página`);
     } catch (e: any) {
       toast.error(e.message ?? "Falha ao processar o PDF");
@@ -184,6 +194,7 @@ function AdminEbooks() {
       setUploading(false);
     }
   };
+
 
   const save = async () => {
     if (!editing) return;
