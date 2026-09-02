@@ -1,82 +1,110 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getPdfjs, renderPageToCanvas } from "@/lib/pdf";
+import { previewPages } from "@/lib/plans";
 
 const HTML_BUCKET = "ebook-html";
 
+export type ConvertResult = {
+  /** Caminho do HTML completo no storage */
+  htmlPath: string;
+  /** Caminho do HTML de prévia (primeiras páginas) */
+  previewPath: string;
+  totalPages: number;
+  previewPageCount: number;
+};
+
+export function htmlPaths(ebookId: string) {
+  return {
+    full: `html/${ebookId}.html`,
+    preview: `html/${ebookId}-preview.html`,
+  };
+}
+
 /**
- * Converts a PDF (from a signed URL) to a self-contained HTML file.
- * Each page is rendered as a JPEG image and embedded in the HTML.
- * The HTML includes a premium dark-mode reader with keyboard/swipe navigation
- * and a progress bar.
- *
- * @param pdfSignedUrl - Signed URL of the PDF in Supabase Storage
- * @param ebookId      - UUID of the ebook (used for the file path)
- * @param onProgress   - Optional callback (current page, total pages)
- * @returns The storage path of the uploaded HTML file
+ * Converte um PDF (via URL assinada) em dois arquivos HTML autocontidos:
+ * o livro completo e a prévia gratuita (primeiras páginas).
+ * Cada página vira uma imagem JPEG embutida no HTML.
  */
 export async function convertPdfToHtml(
   pdfSignedUrl: string,
   ebookId: string,
   onProgress?: (current: number, total: number) => void,
-): Promise<string> {
+): Promise<ConvertResult> {
   const pdfjs = await getPdfjs();
   const doc = await pdfjs.getDocument({ url: pdfSignedUrl }).promise;
   const numPages = doc.numPages;
 
-  // Render every page to a JPEG base64 string
   const images: string[] = [];
   for (let i = 1; i <= numPages; i++) {
     onProgress?.(i, numPages);
     const canvas = document.createElement("canvas");
     await renderPageToCanvas(doc, i, canvas, 900);
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
-    images.push(dataUrl);
+    images.push(canvas.toDataURL("image/jpeg", 0.82));
   }
 
-  const html = buildHtml(images);
+  const previewCount = Math.min(previewPages(numPages), numPages);
+  const paths = htmlPaths(ebookId);
 
-  // Upload the HTML file
-  const path = `html/${ebookId}.html`;
+  await uploadHtmlFile(paths.full, buildHtml(images, { total: numPages }));
+  await uploadHtmlFile(
+    paths.preview,
+    buildHtml(images.slice(0, previewCount), { total: numPages, preview: true }),
+  );
+
+  return {
+    htmlPath: paths.full,
+    previewPath: paths.preview,
+    totalPages: numPages,
+    previewPageCount: previewCount,
+  };
+}
+
+async function uploadHtmlFile(path: string, html: string) {
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-  const file = new File([blob], `${ebookId}.html`, { type: "text/html" });
-
-  // Delete old version if it exists (ignore errors)
+  const file = new File([blob], path.split("/").pop() ?? "ebook.html", { type: "text/html" });
   await supabase.storage.from(HTML_BUCKET).remove([path]).catch(() => {});
-
   const { error } = await supabase.storage.from(HTML_BUCKET).upload(path, file, {
     contentType: "text/html",
     upsert: true,
   });
-  if (error) throw new Error(`Falha ao salvar o HTML: ${error.message}`);
-
-  return path;
+  if (error) throw new Error(`Falha ao salvar o HTML (${path}): ${error.message}`);
 }
 
-/** Returns a signed URL for the HTML reader file (6-hour expiry) */
+/** Retorna uma URL assinada para o arquivo HTML (6 horas) */
 export async function resolveHtmlUrl(value: string | null | undefined): Promise<string | null> {
   if (!value) return null;
   if (/^https?:\/\//i.test(value)) return value;
   const { data, error } = await supabase.storage
     .from(HTML_BUCKET)
     .createSignedUrl(value, 60 * 60 * 6);
-  if (error || !data) return null;
+  if (error || !data) {
+    console.warn("[ebook-html] não foi possível assinar", value, error?.message);
+    return null;
+  }
   return data.signedUrl;
 }
 
-/** Delete an HTML file from storage */
+/** Remove um arquivo HTML do storage */
 export async function deleteHtml(value: string | null | undefined) {
   if (!value || /^https?:\/\//i.test(value)) return;
   await supabase.storage.from(HTML_BUCKET).remove([value]);
 }
 
+/** Remove HTML completo e prévia de um eBook */
+export async function deleteEbookHtml(ebookId: string) {
+  const paths = htmlPaths(ebookId);
+  await supabase.storage.from(HTML_BUCKET).remove([paths.full, paths.preview]).catch(() => {});
+}
+
 // ---------------------------------------------------------------------------
-// HTML template builder — self-contained premium reader
+// Template HTML — leitor autocontido
 // ---------------------------------------------------------------------------
 
-function buildHtml(images: string[]): string {
-  const total = images.length;
+function buildHtml(images: string[], opts: { total: number; preview?: boolean }): string {
+  const shown = images.length;
+  const total = opts.total;
+  const isPreview = !!opts.preview;
 
-  // Embed each page as a <section> with the base64 image
   const pageSections = images
     .map(
       (src, i) =>
@@ -85,6 +113,17 @@ function buildHtml(images: string[]): string {
         `</section>`,
     )
     .join("\n");
+
+  const previewEnd = isPreview
+    ? `<section class="page" id="p${shown + 1}" data-page="${shown + 1}" aria-label="Fim da prévia">
+        <div class="cta">
+          <h2>Fim da prévia gratuita</h2>
+          <p>Você leu ${shown} de ${total} páginas. Assine o FitPower para ler este e todos os outros eBooks da biblioteca.</p>
+        </div>
+      </section>`
+    : "";
+
+  const pageCount = isPreview ? shown + 1 : shown;
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -115,14 +154,8 @@ function buildHtml(images: string[]): string {
     overflow: hidden;
   }
 
-  /* ---------- Layout ---------- */
-  #app {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-  }
+  #app { display: flex; flex-direction: column; height: 100%; }
 
-  /* ---------- Top bar ---------- */
   #topbar {
     flex-shrink: 0;
     display: flex;
@@ -133,18 +166,8 @@ function buildHtml(images: string[]): string {
     border-bottom: 1px solid var(--border);
     z-index: 10;
   }
-  #page-info {
-    font-size: 13px;
-    color: var(--muted);
-    white-space: nowrap;
-  }
-  #progress-wrap {
-    flex: 1;
-    height: 4px;
-    background: var(--border);
-    border-radius: 99px;
-    overflow: hidden;
-  }
+  #page-info { font-size: 13px; color: var(--muted); white-space: nowrap; }
+  #progress-wrap { flex: 1; height: 4px; background: var(--border); border-radius: 99px; overflow: hidden; }
   #progress-bar {
     height: 100%;
     background: linear-gradient(90deg, var(--primary), #a855f7);
@@ -153,14 +176,12 @@ function buildHtml(images: string[]): string {
     width: 0%;
   }
   #pct { font-size: 12px; color: var(--muted); white-space: nowrap; }
-
-  /* ---------- Page viewer ---------- */
-  #viewer {
-    flex: 1;
-    overflow: hidden;
-    position: relative;
-    touch-action: pan-y;
+  .tag {
+    font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--primary-fg); background: var(--primary); border-radius: 99px; padding: 3px 8px;
   }
+
+  #viewer { flex: 1; overflow: hidden; position: relative; touch-action: pan-y; }
 
   .page {
     position: absolute;
@@ -182,8 +203,10 @@ function buildHtml(images: string[]): string {
     user-select: none;
     -webkit-user-drag: none;
   }
+  .cta { max-width: 420px; text-align: center; padding: 24px; }
+  .cta h2 { font-size: 22px; margin-bottom: 10px; }
+  .cta p { color: var(--muted); font-size: 15px; line-height: 1.5; }
 
-  /* ---------- Flip animation ---------- */
   @keyframes flip-next {
     from { transform: perspective(1200px) rotateY(0deg); opacity: 1; }
     to   { transform: perspective(1200px) rotateY(-90deg); opacity: 0; }
@@ -195,7 +218,6 @@ function buildHtml(images: string[]): string {
   .flip-out-next { animation: flip-next 0.22s ease-in forwards; }
   .flip-out-prev { animation: flip-prev 0.22s ease-in forwards; }
 
-  /* ---------- Bottom controls ---------- */
   #controls {
     flex-shrink: 0;
     display: flex;
@@ -231,7 +253,6 @@ function buildHtml(images: string[]): string {
   }
   .btn.primary:not(:disabled):active { background: #6d28d9; }
 
-  /* ---------- Responsive ---------- */
   @media (max-width: 480px) {
     .btn { font-size: 14px; padding: 10px 0; }
     #topbar { padding: 8px 12px; }
@@ -241,13 +262,15 @@ function buildHtml(images: string[]): string {
 <body>
 <div id="app">
   <div id="topbar">
-    <span id="page-info">Página <strong id="cur">1</strong> de <strong>${total}</strong></span>
+    ${isPreview ? '<span class="tag">Prévia</span>' : ""}
+    <span id="page-info">Página <strong id="cur">1</strong> de <strong>${pageCount}</strong>${isPreview ? ` <span style="color:var(--muted)">(de ${total})</span>` : ""}</span>
     <div id="progress-wrap"><div id="progress-bar"></div></div>
     <span id="pct">0%</span>
   </div>
 
   <div id="viewer">
 ${pageSections}
+${previewEnd}
   </div>
 
   <div id="controls">
@@ -258,10 +281,10 @@ ${pageSections}
 
 <script>
 (function () {
-  var TOTAL = ${total};
+  var TOTAL = ${pageCount};
+  var REAL_TOTAL = ${total};
   var cur = 1;
 
-  var pages = document.querySelectorAll('.page');
   var barEl = document.getElementById('progress-bar');
   var pctEl = document.getElementById('pct');
   var curEl = document.getElementById('cur');
@@ -296,21 +319,20 @@ ${pageSections}
     curEl.textContent = cur;
     btnPrev.disabled = cur <= 1;
     btnNext.disabled = cur >= TOTAL;
-    // Notify parent frame of page change
-    try { window.parent.postMessage({ type: 'ebook-page', page: cur, total: TOTAL }, '*'); } catch(_) {}
+    try {
+      window.parent.postMessage({ type: 'ebook-page', page: cur, total: TOTAL, realTotal: REAL_TOTAL }, '*');
+    } catch (_) {}
   }
 
   window.go = function (dir) {
     show(dir === 'next' ? cur + 1 : cur - 1, dir);
   };
 
-  // Keyboard navigation
   document.addEventListener('keydown', function (e) {
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown') go('next');
     if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') go('prev');
   });
 
-  // Touch / swipe
   var tx = 0;
   document.getElementById('viewer').addEventListener('touchstart', function (e) {
     tx = e.touches[0].clientX;
@@ -320,12 +342,10 @@ ${pageSections}
     if (Math.abs(dx) > 48) go(dx < 0 ? 'next' : 'prev');
   }, { passive: true });
 
-  // Listen for parent messages (page jump)
   window.addEventListener('message', function (e) {
     if (e.data && e.data.type === 'ebook-goto') show(e.data.page, null);
   });
 
-  // Init
   document.getElementById('p1').classList.add('active');
   sync();
 })();

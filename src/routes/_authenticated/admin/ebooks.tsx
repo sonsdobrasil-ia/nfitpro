@@ -26,8 +26,9 @@ import {
 import { Plus, Pencil, Trash2, Upload, Loader2, FileText, Code2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { uploadCover, deleteCover } from "@/lib/ebook-covers";
-import { uploadPdf, deletePdf, CATEGORIAS, resolvePdfUrl } from "@/lib/ebook-files";
-import { convertPdfToHtml, deleteHtml } from "@/lib/ebook-html";
+import { uploadPdf, deletePdf, CATEGORIAS, resolvePdfUrl, pdfExists } from "@/lib/ebook-files";
+import { convertPdfToHtml, deleteEbookHtml } from "@/lib/ebook-html";
+
 import { extractPdfInfo } from "@/lib/pdf";
 import { CoverImage } from "@/components/CoverImage";
 
@@ -56,6 +57,7 @@ type Ebook = {
   capa_url: string | null;
   pdf_url: string | null;
   html_url: string | null;
+  html_preview_url: string | null;
   preco: number | null;
   publicado: boolean;
 };
@@ -68,8 +70,10 @@ const empty = (): Partial<Ebook> => ({
   capa_url: "",
   pdf_url: "",
   html_url: "",
+  html_preview_url: "",
   preco: 0,
   publicado: false,
+
 });
 
 function AdminEbooks() {
@@ -80,6 +84,8 @@ function AdminEbooks() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   // Track which ebook ids are currently being converted
   const [converting, setConverting] = useState<Record<string, { current: number; total: number }>>({});
+  // Ids whose pdf_url points to a file that does not exist in storage
+  const [missingPdf, setMissingPdf] = useState<Record<string, boolean>>({});
 
   const load = async () => {
     const { data, error } = await supabase
@@ -87,11 +93,17 @@ function AdminEbooks() {
       .select("*")
       .order("created_at", { ascending: false });
     if (error) return toast.error(error.message);
-    setList((data as any[]) ?? []);
+    const rows = (data as any[]) ?? [];
+    setList(rows);
+    const checks = await Promise.all(
+      rows.map(async (r) => [r.id, r.pdf_url ? !(await pdfExists(r.pdf_url)) : true] as const),
+    );
+    setMissingPdf(Object.fromEntries(checks));
   };
   useEffect(() => {
     load();
   }, []);
+
 
   const open = (e?: Ebook) => {
     setErrors({});
@@ -99,31 +111,49 @@ function AdminEbooks() {
   };
 
   /**
-   * Converts a saved ebook's PDF to HTML and saves the html_url in the DB.
+   * Converte o PDF de um eBook salvo em HTML (completo + prévia) e grava os caminhos.
    */
-  const convertToHtml = async (e: Ebook) => {
-    if (!e.pdf_url) return toast.error("Este eBook não tem PDF.");
-    if (converting[e.id]) return;
+  const convertToHtml = async (
+    e: Pick<Ebook, "id" | "titulo" | "pdf_url" | "paginas">,
+    silent = false,
+  ) => {
+    if (!e.pdf_url) {
+      if (!silent) toast.error("Este eBook não tem PDF.");
+      return false;
+    }
+    if (converting[e.id]) return false;
 
     setConverting((prev) => ({ ...prev, [e.id]: { current: 0, total: e.paginas ?? 0 } }));
     try {
+      const exists = await pdfExists(e.pdf_url);
+      if (!exists) {
+        throw new Error(`Arquivo do PDF não encontrado no armazenamento (${e.pdf_url}). Reenvie o PDF.`);
+      }
       const signedUrl = await resolvePdfUrl(e.pdf_url);
       if (!signedUrl) throw new Error("Não foi possível obter o URL do PDF.");
 
-      const htmlPath = await convertPdfToHtml(signedUrl, e.id, (current, total) => {
+      const result = await convertPdfToHtml(signedUrl, e.id, (current, total) => {
         setConverting((prev) => ({ ...prev, [e.id]: { current, total } }));
       });
 
       const { error } = await supabase
         .from("ebooks")
-        .update({ html_url: htmlPath } as any)
+        .update({
+          html_url: result.htmlPath,
+          html_preview_url: result.previewPath,
+          paginas: result.totalPages,
+        } as any)
         .eq("id", e.id);
       if (error) throw new Error(error.message);
 
-      toast.success(`"${e.titulo}" convertido para HTML com sucesso!`);
+      toast.success(
+        `"${e.titulo}" convertido: ${result.totalPages} páginas (prévia de ${result.previewPageCount}).`,
+      );
       load();
+      return true;
     } catch (err: any) {
       toast.error(err.message ?? "Falha na conversão para HTML");
+      return false;
     } finally {
       setConverting((prev) => {
         const next = { ...prev };
@@ -132,6 +162,7 @@ function AdminEbooks() {
       });
     }
   };
+
 
   const onUploadPdf = async (file: File) => {
     if (!editing) return;
@@ -143,9 +174,19 @@ function AdminEbooks() {
     try {
       const { pages, cover } = await extractPdfInfo(file);
       const [pdfPath, coverPath] = await Promise.all([uploadPdf(file), uploadCover(cover)]);
-      if (editing.pdf_url) await deletePdf(editing.pdf_url);
-      if (editing.capa_url) await deleteCover(editing.capa_url);
-      setEditing({ ...editing, pdf_url: pdfPath, capa_url: coverPath, paginas: pages, html_url: null });
+      const oldPdf = editing.pdf_url;
+      const oldCover = editing.capa_url;
+      if (oldPdf) await deletePdf(oldPdf);
+      if (oldCover) await deleteCover(oldCover);
+      if (editing.id) await deleteEbookHtml(editing.id);
+      setEditing({
+        ...editing,
+        pdf_url: pdfPath,
+        capa_url: coverPath,
+        paginas: pages,
+        html_url: null,
+        html_preview_url: null,
+      });
       toast.success(`PDF enviado — ${pages} páginas, capa extraída da 1ª página`);
     } catch (e: any) {
       toast.error(e.message ?? "Falha ao processar o PDF");
@@ -153,6 +194,7 @@ function AdminEbooks() {
       setUploading(false);
     }
   };
+
 
   const save = async () => {
     if (!editing) return;
