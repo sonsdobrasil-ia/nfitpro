@@ -111,31 +111,49 @@ function AdminEbooks() {
   };
 
   /**
-   * Converts a saved ebook's PDF to HTML and saves the html_url in the DB.
+   * Converte o PDF de um eBook salvo em HTML (completo + prévia) e grava os caminhos.
    */
-  const convertToHtml = async (e: Ebook) => {
-    if (!e.pdf_url) return toast.error("Este eBook não tem PDF.");
-    if (converting[e.id]) return;
+  const convertToHtml = async (
+    e: Pick<Ebook, "id" | "titulo" | "pdf_url" | "paginas">,
+    silent = false,
+  ) => {
+    if (!e.pdf_url) {
+      if (!silent) toast.error("Este eBook não tem PDF.");
+      return false;
+    }
+    if (converting[e.id]) return false;
 
     setConverting((prev) => ({ ...prev, [e.id]: { current: 0, total: e.paginas ?? 0 } }));
     try {
+      const exists = await pdfExists(e.pdf_url);
+      if (!exists) {
+        throw new Error(`Arquivo do PDF não encontrado no armazenamento (${e.pdf_url}). Reenvie o PDF.`);
+      }
       const signedUrl = await resolvePdfUrl(e.pdf_url);
       if (!signedUrl) throw new Error("Não foi possível obter o URL do PDF.");
 
-      const htmlPath = await convertPdfToHtml(signedUrl, e.id, (current, total) => {
+      const result = await convertPdfToHtml(signedUrl, e.id, (current, total) => {
         setConverting((prev) => ({ ...prev, [e.id]: { current, total } }));
       });
 
       const { error } = await supabase
         .from("ebooks")
-        .update({ html_url: htmlPath } as any)
+        .update({
+          html_url: result.htmlPath,
+          html_preview_url: result.previewPath,
+          paginas: result.totalPages,
+        } as any)
         .eq("id", e.id);
       if (error) throw new Error(error.message);
 
-      toast.success(`"${e.titulo}" convertido para HTML com sucesso!`);
+      toast.success(
+        `"${e.titulo}" convertido: ${result.totalPages} páginas (prévia de ${result.previewPageCount}).`,
+      );
       load();
+      return true;
     } catch (err: any) {
       toast.error(err.message ?? "Falha na conversão para HTML");
+      return false;
     } finally {
       setConverting((prev) => {
         const next = { ...prev };
@@ -144,6 +162,7 @@ function AdminEbooks() {
       });
     }
   };
+
 
   const onUploadPdf = async (file: File) => {
     if (!editing) return;
