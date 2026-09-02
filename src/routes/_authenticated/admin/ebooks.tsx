@@ -84,6 +84,8 @@ function AdminEbooks() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   // Track which ebook ids are currently being converted
   const [converting, setConverting] = useState<Record<string, { current: number; total: number }>>({});
+  // Ids whose pdf_url points to a file that does not exist in storage
+  const [missingPdf, setMissingPdf] = useState<Record<string, boolean>>({});
 
   const load = async () => {
     const { data, error } = await supabase
@@ -91,11 +93,17 @@ function AdminEbooks() {
       .select("*")
       .order("created_at", { ascending: false });
     if (error) return toast.error(error.message);
-    setList((data as any[]) ?? []);
+    const rows = (data as any[]) ?? [];
+    setList(rows);
+    const checks = await Promise.all(
+      rows.map(async (r) => [r.id, r.pdf_url ? !(await pdfExists(r.pdf_url)) : true] as const),
+    );
+    setMissingPdf(Object.fromEntries(checks));
   };
   useEffect(() => {
     load();
   }, []);
+
 
   const open = (e?: Ebook) => {
     setErrors({});
