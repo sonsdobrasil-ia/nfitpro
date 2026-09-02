@@ -21,14 +21,32 @@ export async function uploadPdf(file: File): Promise<string> {
     contentType: "application/pdf",
     upsert: false,
   });
-  if (error) throw error;
+  if (error) throw new Error(`Falha ao enviar o PDF: ${error.message}`);
+  const ok = await pdfExists(path);
+  if (!ok) throw new Error("O PDF foi enviado, mas não foi encontrado no armazenamento.");
   return path;
+}
+
+/** Verifica se o arquivo realmente existe no bucket de PDFs. */
+export async function pdfExists(value: string | null | undefined): Promise<boolean> {
+  if (!value) return false;
+  if (/^https?:\/\//i.test(value)) return true;
+  const slash = value.lastIndexOf("/");
+  const folder = slash > 0 ? value.slice(0, slash) : "";
+  const name = slash > 0 ? value.slice(slash + 1) : value;
+  const { data, error } = await supabase.storage.from(BUCKET).list(folder, {
+    search: name,
+    limit: 100,
+  });
+  if (error) return false;
+  return (data ?? []).some((f) => f.name === name);
 }
 
 export async function deletePdf(value: string | null | undefined) {
   if (!value || /^https?:\/\//i.test(value)) return;
   await supabase.storage.from(BUCKET).remove([value]);
 }
+
 
 export async function uploadHtml(html: string, ebookId: string): Promise<string> {
   const path = `html/${ebookId}.html`;
