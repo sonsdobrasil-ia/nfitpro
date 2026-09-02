@@ -57,6 +57,7 @@ type Ebook = {
   capa_url: string | null;
   pdf_url: string | null;
   html_url: string | null;
+  html_preview_url: string | null;
   preco: number | null;
   publicado: boolean;
 };
@@ -69,8 +70,10 @@ const empty = (): Partial<Ebook> => ({
   capa_url: "",
   pdf_url: "",
   html_url: "",
+  html_preview_url: "",
   preco: 0,
   publicado: false,
+
 });
 
 function AdminEbooks() {
