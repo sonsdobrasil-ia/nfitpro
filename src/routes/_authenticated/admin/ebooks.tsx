@@ -26,8 +26,9 @@ import {
 import { Plus, Pencil, Trash2, Upload, Loader2, FileText, Code2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { uploadCover, deleteCover } from "@/lib/ebook-covers";
-import { uploadPdf, deletePdf, CATEGORIAS, resolvePdfUrl } from "@/lib/ebook-files";
-import { convertPdfToHtml, deleteHtml } from "@/lib/ebook-html";
+import { uploadPdf, deletePdf, CATEGORIAS, resolvePdfUrl, pdfExists } from "@/lib/ebook-files";
+import { convertPdfToHtml, deleteEbookHtml } from "@/lib/ebook-html";
+
 import { extractPdfInfo } from "@/lib/pdf";
 import { CoverImage } from "@/components/CoverImage";
 
