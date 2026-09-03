@@ -289,8 +289,10 @@ function AdminEbooks() {
       <div className="grid gap-3">
         {list.map((e) => {
           const conv = converting[e.id];
-          const hasHtml = !!e.html_url;
+          const hasHtml = !!e.html_url && !!e.html_preview_url;
           const hasPdf = !!e.pdf_url;
+          const pdfMissing = missingPdf[e.id];
+
           return (
             <Card key={e.id} className="p-4 flex items-center gap-3">
               <CoverImage
