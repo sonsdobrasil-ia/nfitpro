@@ -220,42 +220,37 @@ function AdminEbooks() {
       setErrors({ pdf_url: "Envie o PDF do eBook" });
       return toast.error("Envie o PDF do eBook");
     }
+    // Confirma que o arquivo existe antes de gravar o caminho
+    const exists = await pdfExists(parsed.data.pdf_url);
+    if (!exists) {
+      setErrors({ pdf_url: "O arquivo do PDF não foi encontrado no armazenamento. Reenvie o PDF." });
+      return toast.error("PDF não encontrado no armazenamento — reenvie o arquivo.");
+    }
+
     setSaving(true);
-    const payload = { ...parsed.data, html_url: editing.html_url ?? null } as any;
-    const isNew = !editing.id;
+    const payload = {
+      ...parsed.data,
+      html_url: editing.html_url ?? null,
+      html_preview_url: editing.html_preview_url ?? null,
+    } as any;
     const { data: saved, error } = editing.id
       ? await supabase.from("ebooks").update(payload).eq("id", editing.id).select("id").maybeSingle()
       : await supabase.from("ebooks").insert(payload).select("id").maybeSingle();
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success("Salvo");
+    const titulo = parsed.data.titulo;
+    const pdfPath = parsed.data.pdf_url;
+    const paginas = Number(parsed.data.paginas);
+    const jaTemHtml = !!editing.html_url && !!editing.html_preview_url;
     setEditing(null);
     setErrors({});
     load();
 
-    // Auto-convert to HTML after saving a new ebook (or if the pdf changed and html_url was cleared)
-    if (!editing.html_url && (saved as any)?.id) {
-      const savedId = (saved as any).id;
-      const signedUrl = await resolvePdfUrl(parsed.data.pdf_url!).catch(() => null);
-      if (signedUrl) {
-        setConverting((prev) => ({ ...prev, [savedId]: { current: 0, total: Number(parsed.data.paginas) } }));
-        try {
-          const htmlPath = await convertPdfToHtml(signedUrl, savedId, (current, total) => {
-            setConverting((prev) => ({ ...prev, [savedId]: { current, total } }));
-          });
-          await supabase.from("ebooks").update({ html_url: htmlPath } as any).eq("id", savedId);
-          toast.success("HTML gerado automaticamente!");
-          load();
-        } catch (e: any) {
-          toast.error(`Aviso: falha ao gerar HTML — ${e.message ?? "tente novamente"}`);
-        } finally {
-          setConverting((prev) => {
-            const next = { ...prev };
-            delete next[savedId];
-            return next;
-          });
-        }
-      }
+    // Conversão automática para HTML (completo + prévia) logo após salvar
+    const savedId = (saved as any)?.id;
+    if (!jaTemHtml && savedId) {
+      await convertToHtml({ id: savedId, titulo, pdf_url: pdfPath, paginas });
     }
   };
 
@@ -263,12 +258,13 @@ function AdminEbooks() {
     if (!confirm(`Excluir "${e.titulo}"?`)) return;
     if (e.capa_url) await deleteCover(e.capa_url);
     if (e.pdf_url) await deletePdf(e.pdf_url);
-    if (e.html_url) await deleteHtml(e.html_url);
+    await deleteEbookHtml(e.id);
     const { error } = await supabase.from("ebooks").delete().eq("id", e.id);
     if (error) return toast.error(error.message);
     toast.success("Excluído");
     load();
   };
+
 
   const togglePublish = async (e: Ebook) => {
     if (!e.publicado && !e.pdf_url) return toast.error("Envie o PDF antes de publicar");
