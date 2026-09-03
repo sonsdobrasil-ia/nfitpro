@@ -27,9 +27,6 @@ export async function uploadCover(file: File): Promise<string> {
 export async function deleteCover(value: string | null | undefined) {
   if (!value || /^https?:\/\//i.test(value)) return;
   cache.delete(value);
-  const { error } = await supabase.storage.from("ebook-covers").remove([value]);
-  if (error) {
-    const { removeStorageFiles } = await import("./ebook-storage.functions");
-    await removeStorageFiles({ data: { cover: value } }).catch(() => {});
-  }
+  const { removeStorageFiles } = await import("./ebook-storage.functions");
+  await removeStorageFiles({ data: { cover: value } });
 }

@@ -54,11 +54,9 @@ export async function pdfExists(value: string | null | undefined): Promise<boole
 
 export async function deletePdf(value: string | null | undefined) {
   if (!value || /^https?:\/\//i.test(value)) return;
-  const { error } = await supabase.storage.from(BUCKET).remove([value]);
-  const stillThere = await pdfExists(value);
-  if (error || stillThere) {
-    await removeStorageFiles({ data: { pdf: value } }).catch(() => {});
-  }
+  // Feito no servidor: o remove() do cliente pode ser silenciosamente
+  // bloqueado pelas policies de storage e não apagar nada.
+  await removeStorageFiles({ data: { pdf: value } });
 }
 
 
