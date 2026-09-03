@@ -20,8 +20,10 @@ type EbookRow = {
   titulo: string;
   pdf_url: string | null;
   html_url: string | null;
+  html_preview_url: string | null;
   paginas: number | null;
 };
+
 
 function Reader() {
   const { id } = Route.useParams();
