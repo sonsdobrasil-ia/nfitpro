@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { checkStorageFile, removeStorageFiles } from "./ebook-storage.functions";
 
 const BUCKET = "ebook-pdfs";
 const HTML_BUCKET = "ebook-html";
