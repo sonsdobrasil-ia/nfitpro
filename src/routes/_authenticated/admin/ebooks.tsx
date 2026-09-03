@@ -412,10 +412,11 @@ function AdminEbooks() {
                       <FileText className="size-3" /> PDF enviado
                     </p>
                   )}
-                  {editing.html_url ? (
+                  {editing.html_url && editing.html_preview_url ? (
                     <p className="mt-1 text-[11px] text-green-600 flex items-center gap-1">
-                      <CheckCircle2 className="size-3" /> HTML gerado
+                      <CheckCircle2 className="size-3" /> HTML e prévia gerados
                     </p>
+
                   ) : editing.pdf_url ? (
                     <p className="mt-1 text-[11px] text-muted-foreground flex items-center gap-1">
                       <Code2 className="size-3" /> HTML: será gerado ao salvar
