@@ -328,8 +328,8 @@ function AdminEbooks() {
                 </div>
               </div>
 
-              {/* Convert to HTML button — only shown when PDF exists but HTML doesn't (and not currently converting) */}
-              {hasPdf && !hasHtml && !conv && (
+              {/* Gerar/regerar HTML (completo + prévia) */}
+              {hasPdf && !pdfMissing && !conv && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -338,9 +338,10 @@ function AdminEbooks() {
                   title="Converter PDF para HTML (leitura web)"
                 >
                   <Code2 className="size-4" />
-                  <span className="hidden sm:inline">Converter HTML</span>
+                  <span className="hidden sm:inline">{hasHtml ? "Regerar HTML" : "Converter HTML"}</span>
                 </Button>
               )}
+
 
               {/* Spinner while converting */}
               {conv && (
