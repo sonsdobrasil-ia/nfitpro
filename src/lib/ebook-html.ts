@@ -93,7 +93,13 @@ export async function deleteHtml(value: string | null | undefined) {
 /** Remove HTML completo e prévia de um eBook */
 export async function deleteEbookHtml(ebookId: string) {
   const paths = htmlPaths(ebookId);
-  await supabase.storage.from(HTML_BUCKET).remove([paths.full, paths.preview]).catch(() => {});
+  const { error } = await supabase.storage
+    .from(HTML_BUCKET)
+    .remove([paths.full, paths.preview]);
+  if (error) {
+    const { removeStorageFiles } = await import("./ebook-storage.functions");
+    await removeStorageFiles({ data: { html: [paths.full, paths.preview] } }).catch(() => {});
+  }
 }
 
 // ---------------------------------------------------------------------------
