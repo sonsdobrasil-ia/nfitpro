@@ -311,9 +311,13 @@ function AdminEbooks() {
                   {e.categoria && <Badge variant="outline">{e.categoria}</Badge>}
                   {hasHtml && (
                     <Badge variant="outline" className="border-green-500 text-green-600 gap-1">
-                      <CheckCircle2 className="size-3" /> HTML
+                      <CheckCircle2 className="size-3" /> HTML + prévia
                     </Badge>
                   )}
+                  {pdfMissing && (
+                    <Badge variant="destructive">PDF ausente — reenvie o arquivo</Badge>
+                  )}
+
                   <span>R$ {Number(e.preco ?? 0).toFixed(2)}</span>
                   <span className="text-muted-foreground">· {e.paginas ?? 0} pág.</span>
                   {conv && (
