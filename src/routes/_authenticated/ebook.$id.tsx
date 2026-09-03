@@ -63,7 +63,7 @@ function Reader() {
       userId.current = u.user?.id ?? null;
       const { data, error } = await supabase
         .from("ebooks")
-        .select("id, titulo, pdf_url, html_url, paginas")
+        .select("id, titulo, pdf_url, html_url, html_preview_url, paginas")
         .eq("id", id)
         .maybeSingle();
       if (error || !data) {
@@ -73,31 +73,47 @@ function Reader() {
       if (!alive) return;
       setEbook(data as any);
 
-      // Try HTML reader first (only for users with full access)
       const ebookData = data as any;
 
-      let access: Awaited<ReturnType<typeof getEbookPdfAccess>>;
+      let access: Awaited<ReturnType<typeof getEbookPdfAccess>> | null = null;
       try {
         access = await fetchPdfAccess({ data: { ebookId: id } });
       } catch (e: any) {
-        if (alive) setLoading(false);
         console.error("[ebook] falha ao obter PDF", e);
-        return toast.error(e?.message ? `PDF indisponível: ${e.message}` : "PDF indisponível");
+        // Sem PDF disponível: ainda podemos ler pelo HTML de prévia
+        if (!ebookData.html_preview_url && !ebookData.html_url) {
+          if (alive) setLoading(false);
+          return toast.error(e?.message ? `eBook indisponível: ${e.message}` : "eBook indisponível");
+        }
       }
 
       // Store the signed PDF URL for potential download
-      if (alive) setPdfSignedUrl(access.url);
+      if (alive && access) setPdfSignedUrl(access.url);
 
-      // If the ebook has an HTML version and user has full access, use it
-      if (ebookData.html_url && access.mode === "full") {
-        const signedHtmlUrl = await resolveHtmlUrl(ebookData.html_url);
+      // Leitura principal em HTML: completo para assinantes, prévia para os demais
+      const isFull = access?.mode === "full";
+      const htmlPath = isFull
+        ? (ebookData.html_url ?? ebookData.html_preview_url)
+        : (ebookData.html_preview_url ?? null);
+      if (htmlPath) {
+        const signedHtmlUrl = await resolveHtmlUrl(htmlPath);
         if (alive && signedHtmlUrl) {
           setHtmlUrl(signedHtmlUrl);
-          setHtmlTotal(ebookData.paginas ?? 0);
+          setHtmlTotal(
+            isFull
+              ? (ebookData.paginas ?? 0)
+              : (access?.mode === "preview" ? access.previewPages : 0),
+          );
           setLoading(false);
           return;
         }
       }
+
+      if (!access) {
+        if (alive) setLoading(false);
+        return toast.error("eBook indisponível");
+      }
+
 
       // Fallback: PDF reader (also used for preview users)
       const doc = await loadPdf(access.url);
