@@ -28,7 +28,11 @@ export async function uploadPdf(file: File): Promise<string> {
   return path;
 }
 
-/** Verifica se o arquivo realmente existe no bucket de PDFs. */
+/**
+ * Verifica se o arquivo realmente existe no bucket de PDFs.
+ * O `list()` do cliente depende das policies de storage e pode retornar vazio
+ * mesmo com o arquivo presente — por isso confirmamos no servidor.
+ */
 export async function pdfExists(value: string | null | undefined): Promise<boolean> {
   if (!value) return false;
   if (/^https?:\/\//i.test(value)) return true;
@@ -39,13 +43,22 @@ export async function pdfExists(value: string | null | undefined): Promise<boole
     search: name,
     limit: 100,
   });
-  if (error) return false;
-  return (data ?? []).some((f) => f.name === name);
+  if (!error && (data ?? []).some((f) => f.name === name)) return true;
+  try {
+    const res = await checkStorageFile({ data: { bucket: BUCKET, path: value } });
+    return !!res.exists;
+  } catch {
+    return false;
+  }
 }
 
 export async function deletePdf(value: string | null | undefined) {
   if (!value || /^https?:\/\//i.test(value)) return;
-  await supabase.storage.from(BUCKET).remove([value]);
+  const { error } = await supabase.storage.from(BUCKET).remove([value]);
+  const stillThere = await pdfExists(value);
+  if (error || stillThere) {
+    await removeStorageFiles({ data: { pdf: value } }).catch(() => {});
+  }
 }
 
 
