@@ -63,6 +63,7 @@ export type Database = {
           created_at: string
           descricao: string | null
           html_url: string | null
+          html_preview_url: string | null
           id: string
           paginas: number | null
           pdf_url: string | null
@@ -79,6 +80,7 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           html_url?: string | null
+          html_preview_url?: string | null
           id?: string
           paginas?: number | null
           pdf_url?: string | null
@@ -95,6 +97,7 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           html_url?: string | null
+          html_preview_url?: string | null
           id?: string
           paginas?: number | null
           pdf_url?: string | null

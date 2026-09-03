@@ -220,42 +220,37 @@ function AdminEbooks() {
       setErrors({ pdf_url: "Envie o PDF do eBook" });
       return toast.error("Envie o PDF do eBook");
     }
+    // Confirma que o arquivo existe antes de gravar o caminho
+    const exists = await pdfExists(parsed.data.pdf_url);
+    if (!exists) {
+      setErrors({ pdf_url: "O arquivo do PDF não foi encontrado no armazenamento. Reenvie o PDF." });
+      return toast.error("PDF não encontrado no armazenamento — reenvie o arquivo.");
+    }
+
     setSaving(true);
-    const payload = { ...parsed.data, html_url: editing.html_url ?? null } as any;
-    const isNew = !editing.id;
+    const payload = {
+      ...parsed.data,
+      html_url: editing.html_url ?? null,
+      html_preview_url: editing.html_preview_url ?? null,
+    } as any;
     const { data: saved, error } = editing.id
       ? await supabase.from("ebooks").update(payload).eq("id", editing.id).select("id").maybeSingle()
       : await supabase.from("ebooks").insert(payload).select("id").maybeSingle();
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success("Salvo");
+    const titulo = parsed.data.titulo;
+    const pdfPath = parsed.data.pdf_url;
+    const paginas = Number(parsed.data.paginas);
+    const jaTemHtml = !!editing.html_url && !!editing.html_preview_url;
     setEditing(null);
     setErrors({});
     load();
 
-    // Auto-convert to HTML after saving a new ebook (or if the pdf changed and html_url was cleared)
-    if (!editing.html_url && (saved as any)?.id) {
-      const savedId = (saved as any).id;
-      const signedUrl = await resolvePdfUrl(parsed.data.pdf_url!).catch(() => null);
-      if (signedUrl) {
-        setConverting((prev) => ({ ...prev, [savedId]: { current: 0, total: Number(parsed.data.paginas) } }));
-        try {
-          const htmlPath = await convertPdfToHtml(signedUrl, savedId, (current, total) => {
-            setConverting((prev) => ({ ...prev, [savedId]: { current, total } }));
-          });
-          await supabase.from("ebooks").update({ html_url: htmlPath } as any).eq("id", savedId);
-          toast.success("HTML gerado automaticamente!");
-          load();
-        } catch (e: any) {
-          toast.error(`Aviso: falha ao gerar HTML — ${e.message ?? "tente novamente"}`);
-        } finally {
-          setConverting((prev) => {
-            const next = { ...prev };
-            delete next[savedId];
-            return next;
-          });
-        }
-      }
+    // Conversão automática para HTML (completo + prévia) logo após salvar
+    const savedId = (saved as any)?.id;
+    if (!jaTemHtml && savedId) {
+      await convertToHtml({ id: savedId, titulo, pdf_url: pdfPath, paginas });
     }
   };
 
@@ -263,12 +258,13 @@ function AdminEbooks() {
     if (!confirm(`Excluir "${e.titulo}"?`)) return;
     if (e.capa_url) await deleteCover(e.capa_url);
     if (e.pdf_url) await deletePdf(e.pdf_url);
-    if (e.html_url) await deleteHtml(e.html_url);
+    await deleteEbookHtml(e.id);
     const { error } = await supabase.from("ebooks").delete().eq("id", e.id);
     if (error) return toast.error(error.message);
     toast.success("Excluído");
     load();
   };
+
 
   const togglePublish = async (e: Ebook) => {
     if (!e.publicado && !e.pdf_url) return toast.error("Envie o PDF antes de publicar");
@@ -293,8 +289,10 @@ function AdminEbooks() {
       <div className="grid gap-3">
         {list.map((e) => {
           const conv = converting[e.id];
-          const hasHtml = !!e.html_url;
+          const hasHtml = !!e.html_url && !!e.html_preview_url;
           const hasPdf = !!e.pdf_url;
+          const pdfMissing = missingPdf[e.id];
+
           return (
             <Card key={e.id} className="p-4 flex items-center gap-3">
               <CoverImage
@@ -313,9 +311,13 @@ function AdminEbooks() {
                   {e.categoria && <Badge variant="outline">{e.categoria}</Badge>}
                   {hasHtml && (
                     <Badge variant="outline" className="border-green-500 text-green-600 gap-1">
-                      <CheckCircle2 className="size-3" /> HTML
+                      <CheckCircle2 className="size-3" /> HTML + prévia
                     </Badge>
                   )}
+                  {pdfMissing && (
+                    <Badge variant="destructive">PDF ausente — reenvie o arquivo</Badge>
+                  )}
+
                   <span>R$ {Number(e.preco ?? 0).toFixed(2)}</span>
                   <span className="text-muted-foreground">· {e.paginas ?? 0} pág.</span>
                   {conv && (
@@ -326,8 +328,8 @@ function AdminEbooks() {
                 </div>
               </div>
 
-              {/* Convert to HTML button — only shown when PDF exists but HTML doesn't (and not currently converting) */}
-              {hasPdf && !hasHtml && !conv && (
+              {/* Gerar/regerar HTML (completo + prévia) */}
+              {hasPdf && !pdfMissing && !conv && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -336,9 +338,10 @@ function AdminEbooks() {
                   title="Converter PDF para HTML (leitura web)"
                 >
                   <Code2 className="size-4" />
-                  <span className="hidden sm:inline">Converter HTML</span>
+                  <span className="hidden sm:inline">{hasHtml ? "Regerar HTML" : "Converter HTML"}</span>
                 </Button>
               )}
+
 
               {/* Spinner while converting */}
               {conv && (
@@ -409,10 +412,11 @@ function AdminEbooks() {
                       <FileText className="size-3" /> PDF enviado
                     </p>
                   )}
-                  {editing.html_url ? (
+                  {editing.html_url && editing.html_preview_url ? (
                     <p className="mt-1 text-[11px] text-green-600 flex items-center gap-1">
-                      <CheckCircle2 className="size-3" /> HTML gerado
+                      <CheckCircle2 className="size-3" /> HTML e prévia gerados
                     </p>
+
                   ) : editing.pdf_url ? (
                     <p className="mt-1 text-[11px] text-muted-foreground flex items-center gap-1">
                       <Code2 className="size-3" /> HTML: será gerado ao salvar
