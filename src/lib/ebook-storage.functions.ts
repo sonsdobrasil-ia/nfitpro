@@ -16,6 +16,13 @@ async function assertAdmin(context: any) {
   if (!data) throw new Error("Apenas administradores podem gerenciar arquivos.");
 }
 
+/** Usa a chave de serviço quando existir; senão cai para o cliente do próprio admin. */
+async function storageClient(context: any) {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return context.supabase;
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin;
+}
+
 function split(path: string) {
   const i = path.lastIndexOf("/");
   return { folder: i > 0 ? path.slice(0, i) : "", name: i > 0 ? path.slice(i + 1) : path };
