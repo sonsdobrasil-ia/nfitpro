@@ -128,10 +128,20 @@ function Reader() {
 
   const percent = htmlTotal ? Math.round((htmlPage / htmlTotal) * 100) : 0;
 
-  const handleDownloadPdf = () => {
-    if (!pdfSignedUrl) return toast.error("PDF não disponível");
+  const handleDownloadPdf = async () => {
+    let url = pdfSignedUrl;
+    if (!url) {
+      try {
+        const access = await fetchPdfAccess({ data: { ebookId: id } });
+        url = access.url;
+        setPdfSignedUrl(access.url);
+      } catch (e: any) {
+        console.error("[ebook] download do PDF falhou", e);
+        return toast.error("PDF não disponível para download");
+      }
+    }
     const a = document.createElement("a");
-    a.href = pdfSignedUrl;
+    a.href = url;
     a.download = `${ebook?.titulo ?? "ebook"}.pdf`;
     a.target = "_blank";
     a.rel = "noopener noreferrer";
