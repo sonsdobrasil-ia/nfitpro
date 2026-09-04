@@ -294,71 +294,76 @@ function AdminEbooks() {
           const pdfMissing = missingPdf[e.id];
 
           return (
-            <Card key={e.id} className="p-4 flex items-center gap-3">
-              <CoverImage
-                value={e.capa_url}
-                className="h-16 w-12 rounded object-cover bg-muted shrink-0"
-                alt={e.titulo}
-                fallback={<div className="h-16 w-12 rounded bg-muted shrink-0" />}
-              />
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold truncate">{e.titulo}</div>
-                <div className="text-xs text-muted-foreground truncate">{e.descricao}</div>
-                <div className="text-xs mt-1 flex items-center gap-2 flex-wrap">
-                  <Badge variant={e.publicado ? "default" : "secondary"}>
-                    {e.publicado ? "Publicado" : "Rascunho"}
-                  </Badge>
-                  {e.categoria && <Badge variant="outline">{e.categoria}</Badge>}
-                  {hasHtml && (
-                    <Badge variant="outline" className="border-green-500 text-green-600 gap-1">
-                      <CheckCircle2 className="size-3" /> HTML + prévia
+            <Card
+              key={e.id}
+              className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-3"
+            >
+              <div className="flex items-start gap-3 min-w-0 flex-1">
+                <CoverImage
+                  value={e.capa_url}
+                  className="h-16 w-12 rounded object-cover bg-muted shrink-0"
+                  alt={e.titulo}
+                  fallback={<div className="h-16 w-12 rounded bg-muted shrink-0" />}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold truncate">{e.titulo}</div>
+                  <div className="text-xs text-muted-foreground line-clamp-2 sm:truncate">
+                    {e.descricao}
+                  </div>
+                  <div className="text-xs mt-1 flex items-center gap-1.5 flex-wrap">
+                    <Badge variant={e.publicado ? "default" : "secondary"}>
+                      {e.publicado ? "Publicado" : "Rascunho"}
                     </Badge>
-                  )}
-                  {pdfMissing && (
-                    <Badge variant="destructive">PDF ausente — reenvie o arquivo</Badge>
-                  )}
+                    {e.categoria && <Badge variant="outline">{e.categoria}</Badge>}
+                    {hasHtml && (
+                      <Badge variant="outline" className="border-green-500 text-green-600 gap-1">
+                        <CheckCircle2 className="size-3" /> HTML + prévia
+                      </Badge>
+                    )}
+                    {pdfMissing && <Badge variant="destructive">PDF ausente — reenvie</Badge>}
 
-                  <span>R$ {Number(e.preco ?? 0).toFixed(2)}</span>
-                  <span className="text-muted-foreground">· {e.paginas ?? 0} pág.</span>
-                  {conv && (
-                    <span className="text-xs text-primary font-medium">
-                      Convertendo {conv.current}/{conv.total} págs…
-                    </span>
-                  )}
+                    <span>R$ {Number(e.preco ?? 0).toFixed(2)}</span>
+                    <span className="text-muted-foreground">· {e.paginas ?? 0} pág.</span>
+                    {conv && (
+                      <span className="text-xs text-primary font-medium">
+                        Convertendo {conv.current}/{conv.total} págs…
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Gerar/regerar HTML (completo + prévia) */}
-              {hasPdf && !pdfMissing && !conv && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1 border-primary/50 text-primary hover:bg-primary/10 shrink-0"
-                  onClick={() => convertToHtml(e)}
-                  title="Converter PDF para HTML (leitura web)"
-                >
-                  <Code2 className="size-4" />
-                  <span className="hidden sm:inline">{hasHtml ? "Regerar HTML" : "Converter HTML"}</span>
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:shrink-0 justify-end">
+                {/* Gerar/regerar HTML (completo + prévia) */}
+                {hasPdf && !pdfMissing && !conv && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1 border-primary/50 text-primary hover:bg-primary/10"
+                    onClick={() => convertToHtml(e)}
+                    title="Converter PDF para HTML (leitura web)"
+                  >
+                    <Code2 className="size-4" />
+                    <span>{hasHtml ? "Regerar HTML" : "Converter HTML"}</span>
+                  </Button>
+                )}
+
+                {conv && (
+                  <div className="flex items-center gap-1 text-primary text-xs font-medium">
+                    <Loader2 className="size-4 animate-spin" />
+                  </div>
+                )}
+
+                <Button size="sm" variant="outline" onClick={() => togglePublish(e)}>
+                  {e.publicado ? "Despublicar" : "Publicar"}
                 </Button>
-              )}
-
-
-              {/* Spinner while converting */}
-              {conv && (
-                <div className="shrink-0 flex items-center gap-1 text-primary text-xs font-medium">
-                  <Loader2 className="size-4 animate-spin" />
-                </div>
-              )}
-
-              <Button size="sm" variant="outline" onClick={() => togglePublish(e)}>
-                {e.publicado ? "Despublicar" : "Publicar"}
-              </Button>
-              <Button size="icon" variant="ghost" onClick={() => open(e)}>
-                <Pencil className="size-4" />
-              </Button>
-              <Button size="icon" variant="ghost" onClick={() => remove(e)}>
-                <Trash2 className="size-4 text-destructive" />
-              </Button>
+                <Button size="icon" variant="ghost" onClick={() => open(e)}>
+                  <Pencil className="size-4" />
+                </Button>
+                <Button size="icon" variant="ghost" onClick={() => remove(e)}>
+                  <Trash2 className="size-4 text-destructive" />
+                </Button>
+              </div>
             </Card>
           );
         })}
