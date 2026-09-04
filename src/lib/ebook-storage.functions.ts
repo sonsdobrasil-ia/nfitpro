@@ -78,3 +78,24 @@ export const removeStorageFiles = createServerFn({ method: "POST" })
     }
     return { ok: errors.length === 0, errors };
   });
+
+/** Gera uma URL assinada com privilégios de servidor (fallback do cliente). */
+export const signStorageUrl = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        bucket: z.enum([PDF_BUCKET, COVER_BUCKET, HTML_BUCKET]),
+        path: z.string().min(1),
+        expiresIn: z.number().int().positive().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const client = await storageClient(context);
+    const { data: signed, error } = await client.storage
+      .from(data.bucket)
+      .createSignedUrl(data.path, data.expiresIn ?? 60 * 60 * 6);
+    if (error || !signed) throw new Error(error?.message ?? "Não foi possível assinar o arquivo.");
+    return { url: signed.signedUrl };
+  });
