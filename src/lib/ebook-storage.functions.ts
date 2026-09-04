@@ -36,7 +36,7 @@ export const checkStorageFile = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await storageClient(context);
     const { folder, name } = split(data.path);
     const { data: files, error } = await supabaseAdmin.storage
       .from(data.bucket)
@@ -59,7 +59,7 @@ export const removeStorageFiles = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await storageClient(context);
     const isPath = (v?: string | null) => !!v && !/^https?:\/\//i.test(v);
     const errors: string[] = [];
 
