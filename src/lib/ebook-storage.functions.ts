@@ -42,7 +42,7 @@ export const checkStorageFile = createServerFn({ method: "POST" })
       .from(data.bucket)
       .list(folder, { search: name, limit: 100 });
     if (error) throw new Error(error.message);
-    return { exists: (files ?? []).some((f) => f.name === name) };
+    return { exists: (files ?? []).some((f: { name: string }) => f.name === name) };
   });
 
 /** Remove arquivos com privilégios de servidor (ignora RLS do storage). */
