@@ -61,16 +61,8 @@ function Reader() {
       const row = data as any as EbookRow;
       setEbook(row);
 
-      let access: Awaited<ReturnType<typeof getEbookPdfAccess>> | null = null;
-      try {
-        access = await fetchPdfAccess({ data: { ebookId: id } });
-      } catch (e) {
-        console.error("[ebook] sem acesso ao PDF", e);
-      }
-      if (!alive) return;
-      if (access) setPdfSignedUrl(access.url);
-
-      const isFull = access ? access.mode === "full" : hasAccess;
+      // A leitura usa somente o HTML — o PDF não é mais carregado aqui.
+      const isFull = hasAccess;
       const htmlPath = isFull
         ? (row.html_url ?? row.html_preview_url)
         : (row.html_preview_url ?? null);
@@ -90,9 +82,7 @@ function Reader() {
       }
 
       setHtmlUrl(signed);
-      setHtmlTotal(
-        isFull ? (row.paginas ?? 0) : access?.mode === "preview" ? access.previewPages : 0,
-      );
+      setHtmlTotal(isFull ? (row.paginas ?? 0) : previewPages(row.paginas ?? 0));
       setLoading(false);
     })();
     return () => {
