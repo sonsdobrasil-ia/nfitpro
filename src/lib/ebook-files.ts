@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { checkStorageFile, removeStorageFiles } from "./ebook-storage.functions";
+import { checkStorageFile, removeStorageFiles, signStorageUrl } from "./ebook-storage.functions";
 
 const BUCKET = "ebook-pdfs";
 const HTML_BUCKET = "ebook-html";
@@ -15,10 +15,21 @@ export async function resolvePdfUrl(value: string | null | undefined): Promise<s
   const cached = cache.get(value);
   if (cached && cached.expires > Date.now()) return cached.url;
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(value, 60 * 60 * 6);
-  if (error || !data) return null;
-  cache.set(value, { url: data.signedUrl, expires: Date.now() + 1000 * 60 * 60 * 5 });
-  return data.signedUrl;
+  if (!error && data) {
+    cache.set(value, { url: data.signedUrl, expires: Date.now() + 1000 * 60 * 60 * 5 });
+    return data.signedUrl;
+  }
+  // As policies do storage podem bloquear a assinatura no cliente; tenta no servidor.
+  try {
+    const res = await signStorageUrl({ data: { bucket: BUCKET, path: value } });
+    cache.set(value, { url: res.url, expires: Date.now() + 1000 * 60 * 60 * 5 });
+    return res.url;
+  } catch (e) {
+    console.warn("[ebook-files] falha ao assinar PDF", value, error?.message, e);
+    return null;
+  }
 }
+
 
 export async function uploadPdf(file: File): Promise<string> {
   const path = `pdfs/${crypto.randomUUID()}.pdf`;
