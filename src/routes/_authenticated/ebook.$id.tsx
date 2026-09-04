@@ -161,7 +161,7 @@ function Reader() {
         <span className="text-xs text-muted-foreground tabular-nums shrink-0">
           {htmlTotal ? `${htmlPage}/${htmlTotal}` : ""}
         </span>
-        {canDownloadPdf && pdfSignedUrl && (
+        {canDownloadPdf && !!ebook?.pdf_url && (
           <button
             onClick={handleDownloadPdf}
             title="Baixar PDF (plano Anual)"
