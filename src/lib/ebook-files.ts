@@ -4,6 +4,10 @@ import { checkStorageFile, removeStorageFiles } from "./ebook-storage.functions"
 const BUCKET = "ebook-pdfs";
 const HTML_BUCKET = "ebook-html";
 const cache = new Map<string, { url: string; expires: number }>();
+// Um upload concluído com sucesso é a confirmação mais confiável imediata.
+// O endpoint de listagem do Storage pode demorar a refletir o novo objeto ou
+// ocultá-lo por política, produzindo um falso "não encontrado".
+const uploadedPdfPaths = new Set<string>();
 
 export async function resolvePdfUrl(value: string | null | undefined): Promise<string | null> {
   if (!value) return null;
@@ -23,8 +27,7 @@ export async function uploadPdf(file: File): Promise<string> {
     upsert: false,
   });
   if (error) throw new Error(`Falha ao enviar o PDF: ${error.message}`);
-  const ok = await pdfExists(path);
-  if (!ok) throw new Error("O PDF foi enviado, mas não foi encontrado no armazenamento.");
+  uploadedPdfPaths.add(path);
   return path;
 }
 
@@ -36,6 +39,7 @@ export async function uploadPdf(file: File): Promise<string> {
 export async function pdfExists(value: string | null | undefined): Promise<boolean> {
   if (!value) return false;
   if (/^https?:\/\//i.test(value)) return true;
+  if (uploadedPdfPaths.has(value)) return true;
   const slash = value.lastIndexOf("/");
   const folder = slash > 0 ? value.slice(0, slash) : "";
   const name = slash > 0 ? value.slice(slash + 1) : value;
@@ -57,6 +61,7 @@ export async function deletePdf(value: string | null | undefined) {
   // Feito no servidor: o remove() do cliente pode ser silenciosamente
   // bloqueado pelas policies de storage e não apagar nada.
   await removeStorageFiles({ data: { pdf: value } });
+  uploadedPdfPaths.delete(value);
 }
 
 
