@@ -7,6 +7,7 @@ import { resolveHtmlUrl } from "@/lib/ebook-html";
 import { ArrowLeft, Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useHasAccess } from "@/components/SubscriptionGate";
+import { previewPages } from "@/lib/plans";
 import { useSubscription } from "@/lib/use-subscription";
 
 export const Route = createFileRoute("/_authenticated/ebook/$id")({
@@ -61,16 +62,8 @@ function Reader() {
       const row = data as any as EbookRow;
       setEbook(row);
 
-      let access: Awaited<ReturnType<typeof getEbookPdfAccess>> | null = null;
-      try {
-        access = await fetchPdfAccess({ data: { ebookId: id } });
-      } catch (e) {
-        console.error("[ebook] sem acesso ao PDF", e);
-      }
-      if (!alive) return;
-      if (access) setPdfSignedUrl(access.url);
-
-      const isFull = access ? access.mode === "full" : hasAccess;
+      // A leitura usa somente o HTML — o PDF não é mais carregado aqui.
+      const isFull = hasAccess;
       const htmlPath = isFull
         ? (row.html_url ?? row.html_preview_url)
         : (row.html_preview_url ?? null);
@@ -90,9 +83,7 @@ function Reader() {
       }
 
       setHtmlUrl(signed);
-      setHtmlTotal(
-        isFull ? (row.paginas ?? 0) : access?.mode === "preview" ? access.previewPages : 0,
-      );
+      setHtmlTotal(isFull ? (row.paginas ?? 0) : previewPages(row.paginas ?? 0));
       setLoading(false);
     })();
     return () => {
@@ -137,10 +128,20 @@ function Reader() {
 
   const percent = htmlTotal ? Math.round((htmlPage / htmlTotal) * 100) : 0;
 
-  const handleDownloadPdf = () => {
-    if (!pdfSignedUrl) return toast.error("PDF não disponível");
+  const handleDownloadPdf = async () => {
+    let url = pdfSignedUrl;
+    if (!url) {
+      try {
+        const access = await fetchPdfAccess({ data: { ebookId: id } });
+        url = access.url;
+        setPdfSignedUrl(access.url);
+      } catch (e: any) {
+        console.error("[ebook] download do PDF falhou", e);
+        return toast.error("PDF não disponível para download");
+      }
+    }
     const a = document.createElement("a");
-    a.href = pdfSignedUrl;
+    a.href = url;
     a.download = `${ebook?.titulo ?? "ebook"}.pdf`;
     a.target = "_blank";
     a.rel = "noopener noreferrer";
@@ -160,7 +161,7 @@ function Reader() {
         <span className="text-xs text-muted-foreground tabular-nums shrink-0">
           {htmlTotal ? `${htmlPage}/${htmlTotal}` : ""}
         </span>
-        {canDownloadPdf && pdfSignedUrl && (
+        {canDownloadPdf && !!ebook?.pdf_url && (
           <button
             onClick={handleDownloadPdf}
             title="Baixar PDF (plano Anual)"
