@@ -41,8 +41,12 @@ function Reader() {
   const canDownloadPdf = hasAccess && plano === "anual";
 
   useEffect(() => {
+    if (loadingAccess) return;
     let alive = true;
+    let objectUrl: string | null = null;
     (async () => {
+      setLoading(true);
+      setErro(null);
       const { data: u } = await supabase.auth.getUser();
       userId.current = u.user?.id ?? null;
 
