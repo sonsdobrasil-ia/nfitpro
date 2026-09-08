@@ -4,6 +4,7 @@ import { checkStorageFile, removeStorageFiles, signStorageUrl } from "./ebook-st
 const BUCKET = "ebook-pdfs";
 const HTML_BUCKET = "ebook-html";
 const cache = new Map<string, { url: string; expires: number }>();
+const uploadedPdfUrls = new Map<string, string>();
 // Um upload concluído com sucesso é a confirmação mais confiável imediata.
 // O endpoint de listagem do Storage pode demorar a refletir o novo objeto ou
 // ocultá-lo por política, produzindo um falso "não encontrado".
@@ -12,24 +13,33 @@ const uploadedPdfPaths = new Set<string>();
 export async function resolvePdfUrl(value: string | null | undefined): Promise<string | null> {
   if (!value) return null;
   if (/^https?:\/\//i.test(value)) return value;
-  const cached = cache.get(value);
+  const path = normalizeStoragePath(value);
+  const uploadedUrl = uploadedPdfUrls.get(path);
+  if (uploadedUrl) return uploadedUrl;
+  const cached = cache.get(path);
   if (cached && cached.expires > Date.now()) return cached.url;
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(value, 60 * 60 * 6);
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60 * 60 * 6);
   if (!error && data) {
-    cache.set(value, { url: data.signedUrl, expires: Date.now() + 1000 * 60 * 60 * 5 });
+    cache.set(path, { url: data.signedUrl, expires: Date.now() + 1000 * 60 * 60 * 5 });
     return data.signedUrl;
   }
   // As policies do storage podem bloquear a assinatura no cliente; tenta no servidor.
   try {
-    const res = await signStorageUrl({ data: { bucket: BUCKET, path: value } });
-    cache.set(value, { url: res.url, expires: Date.now() + 1000 * 60 * 60 * 5 });
+    const res = await signStorageUrl({ data: { bucket: BUCKET, path } });
+    cache.set(path, { url: res.url, expires: Date.now() + 1000 * 60 * 60 * 5 });
     return res.url;
   } catch (e) {
-    console.warn("[ebook-files] falha ao assinar PDF", value, error?.message, e);
+    console.warn("[ebook-files] falha ao assinar PDF", path, error?.message, e);
     return null;
   }
 }
 
+function normalizeStoragePath(value: string): string {
+  const decoded = decodeURIComponent(value).replace(/^\/+/, "");
+  const bucketMarker = `${BUCKET}/`;
+  const bucketIndex = decoded.indexOf(bucketMarker);
+  return bucketIndex >= 0 ? decoded.slice(bucketIndex + bucketMarker.length) : decoded;
+}
 
 export async function uploadPdf(file: File): Promise<string> {
   const path = `pdfs/${crypto.randomUUID()}.pdf`;
@@ -39,6 +49,7 @@ export async function uploadPdf(file: File): Promise<string> {
   });
   if (error) throw new Error(`Falha ao enviar o PDF: ${error.message}`);
   uploadedPdfPaths.add(path);
+  uploadedPdfUrls.set(path, URL.createObjectURL(file));
   return path;
 }
 
@@ -50,17 +61,18 @@ export async function uploadPdf(file: File): Promise<string> {
 export async function pdfExists(value: string | null | undefined): Promise<boolean> {
   if (!value) return false;
   if (/^https?:\/\//i.test(value)) return true;
-  if (uploadedPdfPaths.has(value)) return true;
-  const slash = value.lastIndexOf("/");
-  const folder = slash > 0 ? value.slice(0, slash) : "";
-  const name = slash > 0 ? value.slice(slash + 1) : value;
+  const path = normalizeStoragePath(value);
+  if (uploadedPdfPaths.has(path)) return true;
+  const slash = path.lastIndexOf("/");
+  const folder = slash > 0 ? path.slice(0, slash) : "";
+  const name = slash > 0 ? path.slice(slash + 1) : path;
   const { data, error } = await supabase.storage.from(BUCKET).list(folder, {
     search: name,
     limit: 100,
   });
   if (!error && (data ?? []).some((f) => f.name === name)) return true;
   try {
-    const res = await checkStorageFile({ data: { bucket: BUCKET, path: value } });
+    const res = await checkStorageFile({ data: { bucket: BUCKET, path } });
     return !!res.exists;
   } catch {
     return false;
@@ -69,10 +81,14 @@ export async function pdfExists(value: string | null | undefined): Promise<boole
 
 export async function deletePdf(value: string | null | undefined) {
   if (!value || /^https?:\/\//i.test(value)) return;
+  const path = normalizeStoragePath(value);
   // Feito no servidor: o remove() do cliente pode ser silenciosamente
   // bloqueado pelas policies de storage e não apagar nada.
-  await removeStorageFiles({ data: { pdf: value } });
-  uploadedPdfPaths.delete(value);
+  await removeStorageFiles({ data: { pdf: path } });
+  uploadedPdfPaths.delete(path);
+  const uploadedUrl = uploadedPdfUrls.get(path);
+  if (uploadedUrl) URL.revokeObjectURL(uploadedUrl);
+  uploadedPdfUrls.delete(path);
 }
 
 
