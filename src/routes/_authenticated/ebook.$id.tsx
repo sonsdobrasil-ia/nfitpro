@@ -86,14 +86,28 @@ function Reader() {
         return;
       }
 
-      setHtmlUrl(signed);
+      // O storage pode servir o arquivo como texto puro (o navegador mostraria
+      // o código). Baixamos e recriamos como documento HTML.
+      try {
+        const res = await fetch(signed);
+        if (!res.ok) throw new Error(String(res.status));
+        const text = await res.text();
+        if (!alive) return;
+        objectUrl = URL.createObjectURL(new Blob([text], { type: "text/html;charset=utf-8" }));
+        setHtmlUrl(objectUrl);
+      } catch {
+        if (!alive) return;
+        setHtmlUrl(signed);
+      }
+
       setHtmlTotal(isFull ? (row.paginas ?? 0) : previewPages(row.paginas ?? 0));
       setLoading(false);
     })();
     return () => {
       alive = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [id]);
+  }, [id, hasAccess, loadingAccess]);
 
   // Page messages from the reader iframe
   useEffect(() => {
