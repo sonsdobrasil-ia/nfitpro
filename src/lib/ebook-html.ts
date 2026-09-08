@@ -259,10 +259,25 @@ function buildHtml(images: string[], opts: { total: number; preview?: boolean })
   }
   .btn.primary:not(:disabled):active { background: #6d28d9; }
 
-  @media (max-width: 480px) {
+  @media (max-width: 640px) {
+    .page { padding: 6px; align-items: flex-start; overflow-y: auto; }
+    .page img {
+      width: 100%;
+      height: auto;
+      max-width: none;
+      max-height: none;
+      border-radius: calc(var(--radius) - 4px);
+    }
     .btn { font-size: 14px; padding: 10px 0; }
-    #topbar { padding: 8px 12px; }
+    #topbar { padding: 6px 10px; }
+    #controls { padding: 8px 10px; }
+    #page-info { font-size: 12px; }
+    #pct { font-size: 11px; }
+    .cta { padding: 16px; }
+    .cta h2 { font-size: 18px; }
+    .cta p { font-size: 14px; }
   }
+
 </style>
 </head>
 <body>
