@@ -140,15 +140,13 @@ function AdminEbooks() {
         .from("ebooks")
         .update({
           html_url: result.htmlPath,
-          html_preview_url: result.previewPath,
+          html_preview_url: null,
           paginas: result.totalPages,
         } as any)
         .eq("id", e.id);
       if (error) throw new Error(error.message);
 
-      toast.success(
-        `"${e.titulo}" convertido: ${result.totalPages} páginas (prévia de ${result.previewPageCount}).`,
-      );
+      toast.success(`"${e.titulo}" convertido: ${result.totalPages} páginas.`);
       load();
       return true;
     } catch (err: any) {
