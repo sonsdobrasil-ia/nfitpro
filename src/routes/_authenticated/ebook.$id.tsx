@@ -97,7 +97,6 @@ function Reader() {
         setHtmlUrl(signed);
       }
 
-      void isFull;
       setHtmlTotal(row.paginas ?? 0);
       setLoading(false);
     })();
