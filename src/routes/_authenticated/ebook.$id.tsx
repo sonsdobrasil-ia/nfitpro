@@ -66,11 +66,9 @@ function Reader() {
       const row = data as any as EbookRow;
       setEbook(row);
 
-      // A leitura usa somente o HTML — o PDF não é mais carregado aqui.
-      const isFull = hasAccess;
-      const htmlPath = isFull
-        ? (row.html_url ?? row.html_preview_url)
-        : (row.html_preview_url ?? null);
+      // A leitura usa somente o HTML completo — o PDF não é mais carregado aqui.
+      const isFull = true;
+      const htmlPath = row.html_url ?? row.html_preview_url;
 
       if (!htmlPath) {
         setLoading(false);
