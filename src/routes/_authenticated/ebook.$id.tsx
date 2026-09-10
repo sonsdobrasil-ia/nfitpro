@@ -7,7 +7,7 @@ import { resolveHtmlUrl } from "@/lib/ebook-html";
 import { ArrowLeft, Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useHasAccess } from "@/components/SubscriptionGate";
-import { previewPages } from "@/lib/plans";
+
 import { useSubscription } from "@/lib/use-subscription";
 
 export const Route = createFileRoute("/_authenticated/ebook/$id")({
@@ -67,7 +67,6 @@ function Reader() {
       setEbook(row);
 
       // A leitura usa somente o HTML completo — o PDF não é mais carregado aqui.
-      const isFull = true;
       const htmlPath = row.html_url ?? row.html_preview_url;
 
       if (!htmlPath) {
