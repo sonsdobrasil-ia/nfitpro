@@ -121,7 +121,7 @@ function buildHtml(images: string[], opts: { total: number; preview?: boolean })
     .join("\n");
 
   const previewEnd = isPreview
-    ? `<section class="page" id="p${shown + 1}" data-page="${shown + 1}" aria-label="Fim da prévia">
+    ? `<section class="page cta-page" id="p${shown + 1}" data-page="${shown + 1}" aria-label="Fim da prévia">
         <div class="cta">
           <h2>Fim da prévia gratuita</h2>
           <p>Você leu ${shown} de ${total} páginas. Assine o FitPower para ler este e todos os outros eBooks da biblioteca.</p>
@@ -148,26 +148,21 @@ function buildHtml(images: string[], opts: { total: number; preview?: boolean })
     --primary-fg: #ffffff;
     --muted: #6b7280;
     --text: #f3f4f6;
-    --radius: 16px;
-    --shadow: 0 8px 32px rgba(0,0,0,0.5);
   }
 
   html, body {
-    height: 100%;
     background: var(--bg);
     color: var(--text);
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    overflow: hidden;
   }
 
-  #app { display: flex; flex-direction: column; height: 100%; }
-
   #topbar {
-    flex-shrink: 0;
+    position: sticky;
+    top: 0;
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 10px 16px;
+    padding: 8px 14px;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     z-index: 10;
@@ -178,7 +173,7 @@ function buildHtml(images: string[], opts: { total: number; preview?: boolean })
     height: 100%;
     background: linear-gradient(90deg, var(--primary), #a855f7);
     border-radius: 99px;
-    transition: width 0.3s ease;
+    transition: width 0.2s ease;
     width: 0%;
   }
   #pct { font-size: 12px; color: var(--muted); white-space: nowrap; }
@@ -187,97 +182,30 @@ function buildHtml(images: string[], opts: { total: number; preview?: boolean })
     color: var(--primary-fg); background: var(--primary); border-radius: 99px; padding: 3px 8px;
   }
 
-  #viewer { flex: 1; overflow: hidden; position: relative; touch-action: pan-y; }
+  /* Leitura contínua de cima para baixo, página em largura total */
+  #viewer { width: 100%; }
 
-  .page {
-    position: absolute;
-    inset: 0;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg);
-    padding: 12px;
-    overflow: hidden;
-  }
-  .page.active { display: flex; }
+  .page { width: 100%; }
   .page img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
+    display: block;
+    width: 100%;
+    height: auto;
     user-select: none;
     -webkit-user-drag: none;
   }
-  .cta { max-width: 420px; text-align: center; padding: 24px; }
+
+  .cta-page { display: flex; align-items: center; justify-content: center; min-height: 60vh; padding: 24px; }
+  .cta { max-width: 420px; text-align: center; }
   .cta h2 { font-size: 22px; margin-bottom: 10px; }
   .cta p { color: var(--muted); font-size: 15px; line-height: 1.5; }
 
-  @keyframes flip-next {
-    from { transform: perspective(1200px) rotateY(0deg); opacity: 1; }
-    to   { transform: perspective(1200px) rotateY(-90deg); opacity: 0; }
-  }
-  @keyframes flip-prev {
-    from { transform: perspective(1200px) rotateY(0deg); opacity: 1; }
-    to   { transform: perspective(1200px) rotateY(90deg); opacity: 0; }
-  }
-  .flip-out-next { animation: flip-next 0.22s ease-in forwards; }
-  .flip-out-prev { animation: flip-prev 0.22s ease-in forwards; }
-
-  #controls {
-    flex-shrink: 0;
-    display: flex;
-    gap: 12px;
-    padding: 12px 16px;
-    background: var(--surface);
-    border-top: 1px solid var(--border);
-  }
-  .btn {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--text);
-    border-radius: var(--radius);
-    padding: 12px 0;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.15s, opacity 0.15s;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .btn:disabled { opacity: 0.3; cursor: default; }
-  .btn:not(:disabled):active { background: var(--border); }
-  .btn.primary {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: var(--primary-fg);
-    box-shadow: 0 0 16px rgba(124,58,237,0.4);
-  }
-  .btn.primary:not(:disabled):active { background: #6d28d9; }
-
   @media (max-width: 640px) {
-    .page { padding: 6px; align-items: flex-start; overflow-y: auto; }
-    .page img {
-      width: 100%;
-      height: auto;
-      max-width: none;
-      max-height: none;
-      border-radius: calc(var(--radius) - 4px);
-    }
-    .btn { font-size: 14px; padding: 10px 0; }
     #topbar { padding: 6px 10px; }
-    #controls { padding: 8px 10px; }
     #page-info { font-size: 12px; }
     #pct { font-size: 11px; }
-    .cta { padding: 16px; }
     .cta h2 { font-size: 18px; }
     .cta p { font-size: 14px; }
   }
-
 </style>
 </head>
 <body>
@@ -293,11 +221,6 @@ function buildHtml(images: string[], opts: { total: number; preview?: boolean })
 ${pageSections}
 ${previewEnd}
   </div>
-
-  <div id="controls">
-    <button class="btn" id="btn-prev" disabled onclick="go('prev')">&#8249; Anterior</button>
-    <button class="btn primary" id="btn-next" onclick="go('next')">Próxima &#8250;</button>
-  </div>
 </div>
 
 <script>
@@ -309,66 +232,50 @@ ${previewEnd}
   var barEl = document.getElementById('progress-bar');
   var pctEl = document.getElementById('pct');
   var curEl = document.getElementById('cur');
-  var btnPrev = document.getElementById('btn-prev');
-  var btnNext = document.getElementById('btn-next');
 
-  function show(n, dir) {
-    if (n < 1 || n > TOTAL || n === cur) return;
-    var leaving = document.querySelector('.page.active');
-    var entering = document.getElementById('p' + n);
-    if (!entering) return;
-
-    if (leaving && dir) {
-      var cls = dir === 'next' ? 'flip-out-next' : 'flip-out-prev';
-      leaving.classList.add(cls);
-      leaving.addEventListener('animationend', function () {
-        leaving.classList.remove('active', cls);
-      }, { once: true });
-    } else if (leaving) {
-      leaving.classList.remove('active');
-    }
-
-    entering.classList.add('active');
-    cur = n;
-    sync();
-  }
-
-  function sync() {
+  function sync(page) {
+    cur = page;
     var pct = Math.round((cur / TOTAL) * 100);
     barEl.style.width = pct + '%';
     pctEl.textContent = pct + '%';
     curEl.textContent = cur;
-    btnPrev.disabled = cur <= 1;
-    btnNext.disabled = cur >= TOTAL;
     try {
       window.parent.postMessage({ type: 'ebook-page', page: cur, total: TOTAL, realTotal: REAL_TOTAL }, '*');
     } catch (_) {}
   }
 
-  window.go = function (dir) {
-    show(dir === 'next' ? cur + 1 : cur - 1, dir);
-  };
+  // Detecta a página visível conforme a rolagem
+  var pages = Array.prototype.slice.call(document.querySelectorAll('.page'));
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) {
+          var p = parseInt(en.target.getAttribute('data-page'), 10);
+          if (p && p !== cur) sync(p);
+        }
+      });
+    }, { rootMargin: '-40% 0px -40% 0px' });
+    pages.forEach(function (el) { io.observe(el); });
+  } else {
+    window.addEventListener('scroll', function () {
+      var mid = window.scrollY + window.innerHeight / 2;
+      var acc = 0;
+      for (var i = 0; i < pages.length; i++) {
+        acc += pages[i].offsetHeight;
+        if (mid <= acc) { sync(i + 1); break; }
+      }
+    }, { passive: true });
+  }
 
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown') go('next');
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') go('prev');
-  });
-
-  var tx = 0;
-  document.getElementById('viewer').addEventListener('touchstart', function (e) {
-    tx = e.touches[0].clientX;
-  }, { passive: true });
-  document.getElementById('viewer').addEventListener('touchend', function (e) {
-    var dx = e.changedTouches[0].clientX - tx;
-    if (Math.abs(dx) > 48) go(dx < 0 ? 'next' : 'prev');
-  }, { passive: true });
-
+  // Permite que o app pai role até uma página específica
   window.addEventListener('message', function (e) {
-    if (e.data && e.data.type === 'ebook-goto') show(e.data.page, null);
+    if (e.data && e.data.type === 'ebook-goto') {
+      var el = document.getElementById('p' + e.data.page);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }
   });
 
-  document.getElementById('p1').classList.add('active');
-  sync();
+  sync(1);
 })();
 </script>
 </body>
