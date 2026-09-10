@@ -166,9 +166,9 @@ function Reader() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background">
-      {/* Barra superior mínima — mais compacta em mobile */}
-      <header className="flex items-center gap-2 px-3 h-11 sm:h-12 shrink-0 border-b bg-background/95 backdrop-blur">
+    <div className="flex flex-col h-[calc(100dvh-5rem)] bg-background">
+      {/* Barra superior — visível junto com o menu inferior */}
+      <header className="sticky top-0 z-30 flex items-center gap-2 px-3 h-12 shrink-0 border-b bg-background/95 backdrop-blur">
         <Link to="/ebook" className="p-2 -ml-2 rounded-full hover:bg-muted" aria-label="Voltar">
           <ArrowLeft className="size-5" />
         </Link>
