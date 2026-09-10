@@ -98,7 +98,8 @@ function Reader() {
         setHtmlUrl(signed);
       }
 
-      setHtmlTotal(isFull ? (row.paginas ?? 0) : previewPages(row.paginas ?? 0));
+      void isFull;
+      setHtmlTotal(row.paginas ?? 0);
       setLoading(false);
     })();
     return () => {
