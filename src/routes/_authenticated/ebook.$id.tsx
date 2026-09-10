@@ -7,7 +7,7 @@ import { resolveHtmlUrl } from "@/lib/ebook-html";
 import { ArrowLeft, Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useHasAccess } from "@/components/SubscriptionGate";
-import { previewPages } from "@/lib/plans";
+
 import { useSubscription } from "@/lib/use-subscription";
 
 export const Route = createFileRoute("/_authenticated/ebook/$id")({
@@ -66,11 +66,8 @@ function Reader() {
       const row = data as any as EbookRow;
       setEbook(row);
 
-      // A leitura usa somente o HTML — o PDF não é mais carregado aqui.
-      const isFull = hasAccess;
-      const htmlPath = isFull
-        ? (row.html_url ?? row.html_preview_url)
-        : (row.html_preview_url ?? null);
+      // A leitura usa somente o HTML completo — o PDF não é mais carregado aqui.
+      const htmlPath = row.html_url ?? row.html_preview_url;
 
       if (!htmlPath) {
         setLoading(false);
@@ -100,7 +97,7 @@ function Reader() {
         setHtmlUrl(signed);
       }
 
-      setHtmlTotal(isFull ? (row.paginas ?? 0) : previewPages(row.paginas ?? 0));
+      setHtmlTotal(row.paginas ?? 0);
       setLoading(false);
     })();
     return () => {
@@ -169,9 +166,9 @@ function Reader() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background">
-      {/* Barra superior mínima — mais compacta em mobile */}
-      <header className="flex items-center gap-2 px-3 h-11 sm:h-12 shrink-0 border-b bg-background/95 backdrop-blur">
+    <div className="flex flex-col h-[calc(100dvh-5rem)] bg-background">
+      {/* Barra superior — visível junto com o menu inferior */}
+      <header className="sticky top-0 z-30 flex items-center gap-2 px-3 h-12 shrink-0 border-b bg-background/95 backdrop-blur">
         <Link to="/ebook" className="p-2 -ml-2 rounded-full hover:bg-muted" aria-label="Voltar">
           <ArrowLeft className="size-5" />
         </Link>

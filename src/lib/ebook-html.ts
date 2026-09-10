@@ -1,16 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getPdfjs, renderPageToCanvas } from "@/lib/pdf";
-import { previewPages } from "@/lib/plans";
 
 const HTML_BUCKET = "ebook-html";
 
 export type ConvertResult = {
   /** Caminho do HTML completo no storage */
   htmlPath: string;
-  /** Caminho do HTML de prévia (primeiras páginas) */
-  previewPath: string;
   totalPages: number;
-  previewPageCount: number;
 };
 
 export function htmlPaths(ebookId: string) {
@@ -21,9 +17,8 @@ export function htmlPaths(ebookId: string) {
 }
 
 /**
- * Converte um PDF (via URL assinada) em dois arquivos HTML autocontidos:
- * o livro completo e a prévia gratuita (primeiras páginas).
- * Cada página vira uma imagem JPEG embutida no HTML.
+ * Converte um PDF (via URL assinada) em um HTML autocontido com o livro
+ * completo. Cada página vira uma imagem JPEG embutida no HTML.
  */
 export async function convertPdfToHtml(
   pdfSignedUrl: string,
@@ -42,20 +37,14 @@ export async function convertPdfToHtml(
     images.push(canvas.toDataURL("image/jpeg", 0.82));
   }
 
-  const previewCount = Math.min(previewPages(numPages), numPages);
   const paths = htmlPaths(ebookId);
-
   await uploadHtmlFile(paths.full, buildHtml(images, { total: numPages }));
-  await uploadHtmlFile(
-    paths.preview,
-    buildHtml(images.slice(0, previewCount), { total: numPages, preview: true }),
-  );
+  // Remove qualquer prévia antiga — agora só existe a versão completa
+  await supabase.storage.from(HTML_BUCKET).remove([paths.preview]).catch(() => {});
 
   return {
     htmlPath: paths.full,
-    previewPath: paths.preview,
     totalPages: numPages,
-    previewPageCount: previewCount,
   };
 }
 

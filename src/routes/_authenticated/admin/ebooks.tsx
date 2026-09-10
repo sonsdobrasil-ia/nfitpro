@@ -140,15 +140,13 @@ function AdminEbooks() {
         .from("ebooks")
         .update({
           html_url: result.htmlPath,
-          html_preview_url: result.previewPath,
+          html_preview_url: null,
           paginas: result.totalPages,
         } as any)
         .eq("id", e.id);
       if (error) throw new Error(error.message);
 
-      toast.success(
-        `"${e.titulo}" convertido: ${result.totalPages} páginas (prévia de ${result.previewPageCount}).`,
-      );
+      toast.success(`"${e.titulo}" convertido: ${result.totalPages} páginas.`);
       load();
       return true;
     } catch (err: any) {
@@ -242,7 +240,7 @@ function AdminEbooks() {
     const titulo = parsed.data.titulo;
     const pdfPath = parsed.data.pdf_url;
     const paginas = Number(parsed.data.paginas);
-    const jaTemHtml = !!editing.html_url && !!editing.html_preview_url;
+    const jaTemHtml = !!editing.html_url;
     setEditing(null);
     setErrors({});
     load();
@@ -289,7 +287,7 @@ function AdminEbooks() {
       <div className="grid gap-3">
         {list.map((e) => {
           const conv = converting[e.id];
-          const hasHtml = !!e.html_url && !!e.html_preview_url;
+          const hasHtml = !!e.html_url;
           const hasPdf = !!e.pdf_url;
           const pdfMissing = missingPdf[e.id];
 
@@ -317,7 +315,7 @@ function AdminEbooks() {
                     {e.categoria && <Badge variant="outline">{e.categoria}</Badge>}
                     {hasHtml && (
                       <Badge variant="outline" className="border-green-500 text-green-600 gap-1">
-                        <CheckCircle2 className="size-3" /> HTML + prévia
+                        <CheckCircle2 className="size-3" /> HTML completo
                       </Badge>
                     )}
                     {pdfMissing && <Badge variant="destructive">PDF ausente — reenvie</Badge>}
@@ -417,9 +415,9 @@ function AdminEbooks() {
                       <FileText className="size-3" /> PDF enviado
                     </p>
                   )}
-                  {editing.html_url && editing.html_preview_url ? (
+                  {editing.html_url ? (
                     <p className="mt-1 text-[11px] text-green-600 flex items-center gap-1">
-                      <CheckCircle2 className="size-3" /> HTML e prévia gerados
+                      <CheckCircle2 className="size-3" /> HTML completo gerado
                     </p>
 
                   ) : editing.pdf_url ? (
