@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
 import { PLANO, FRASES, workoutKey } from "@/lib/plan";
-import { Play, BookOpen, Flame, Sparkles } from "lucide-react";
+import { Play, BookOpen, Flame, Sparkles, ShoppingCart } from "lucide-react";
 import { useHasAccess } from "@/components/SubscriptionGate";
 
 
@@ -97,6 +97,18 @@ function Dashboard() {
         <Flame className="size-5 text-primary shrink-0 mt-0.5" />
         <p className="italic text-sm">"{frase}"</p>
       </div>
+
+      {/* Compras saudáveis */}
+      <Link to="/compras" className="mt-5 flex items-center gap-3 rounded-2xl bg-card border p-4 shadow-soft">
+        <div className="size-11 rounded-xl bg-success/15 text-success flex items-center justify-center">
+          <ShoppingCart className="size-5" />
+        </div>
+        <div className="flex-1">
+          <p className="font-bold">Compras saudáveis</p>
+          <p className="text-xs text-muted-foreground">Monte sua lista com produtos sugeridos</p>
+        </div>
+        <span className="text-muted-foreground">›</span>
+      </Link>
 
       {/* eBook shortcut */}
       <Link to="/ebook" className="mt-5 mb-8 flex items-center gap-3 rounded-2xl bg-card border p-4 shadow-soft">
