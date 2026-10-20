@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { sortAdminProducts } from "./admin-product-sort";
+import { sortAdminProducts } from "../src/lib/admin-product-sort";
 
 const products = [
   { titulo: "Treino", categoria: "Corrida", preco: 30 },
