@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Admin product sorting is a browser-side view of the existing newest-first query; it must not change the customer library order or stored product data.
