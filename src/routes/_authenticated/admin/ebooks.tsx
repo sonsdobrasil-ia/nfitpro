@@ -31,10 +31,21 @@ import { convertPdfToHtml, deleteEbookHtml } from "@/lib/ebook-html";
 
 import { extractPdfInfo } from "@/lib/pdf";
 import { CoverImage } from "@/components/CoverImage";
+import { sortAdminProducts, type ProductSort } from "@/lib/admin-product-sort";
 
 
 export const Route = createFileRoute("/_authenticated/admin/ebooks")({
   component: AdminEbooks,
+  head: () => ({
+    meta: [
+      { title: "Produtos | Administração FitPower" },
+      { name: "description", content: "Gerencie e classifique os eBooks cadastrados no FitPower." },
+      { property: "og:title", content: "Produtos | Administração FitPower" },
+      { property: "og:description", content: "Gerencie e classifique os eBooks cadastrados no FitPower." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
 });
 
 const ebookSchema = z.object({
@@ -78,6 +89,7 @@ const empty = (): Partial<Ebook> => ({
 
 function AdminEbooks() {
   const [list, setList] = useState<Ebook[]>([]);
+  const [sortOrder, setSortOrder] = useState<ProductSort>("recentes");
   const [editing, setEditing] = useState<Partial<Ebook> | null>(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -278,14 +290,30 @@ function AdminEbooks() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center gap-3 mb-4">
         <h2 className="text-lg font-semibold">Produtos (eBooks)</h2>
         <Button onClick={() => open()} size="sm">
           <Plus className="size-4 mr-1" /> Novo
         </Button>
       </div>
-      <div className="grid gap-3">
-        {list.map((e) => {
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <Label htmlFor="product-sort">Ordenar por</Label>
+        <Select value={sortOrder} onValueChange={(value) => setSortOrder(value as ProductSort)}>
+          <SelectTrigger id="product-sort" className="w-48 max-w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="recentes">Mais recentes</SelectItem>
+            <SelectItem value="antigos">Mais antigos</SelectItem>
+            <SelectItem value="nome">Nome (A–Z)</SelectItem>
+            <SelectItem value="categoria">Categoria</SelectItem>
+            <SelectItem value="preco-menor">Menor preço</SelectItem>
+            <SelectItem value="preco-maior">Maior preço</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="grid min-w-0 gap-3">
+        {sortAdminProducts(list, sortOrder).map((e) => {
           const conv = converting[e.id];
           const hasHtml = !!e.html_url;
           const hasPdf = !!e.pdf_url;
@@ -294,7 +322,7 @@ function AdminEbooks() {
           return (
             <Card
               key={e.id}
-              className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-3"
+              className="min-w-0 p-3 sm:p-4 flex flex-col xl:flex-row xl:items-center gap-3"
             >
               <div className="flex items-start gap-3 min-w-0 flex-1">
                 <CoverImage
@@ -305,7 +333,7 @@ function AdminEbooks() {
                 />
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold truncate">{e.titulo}</div>
-                  <div className="text-xs text-muted-foreground line-clamp-2 sm:truncate">
+                  <div className="max-w-72 truncate text-xs text-muted-foreground" title={e.descricao ?? undefined}>
                     {e.descricao}
                   </div>
                   <div className="text-xs mt-1 flex items-center gap-1.5 flex-wrap">
@@ -331,7 +359,7 @@ function AdminEbooks() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:shrink-0 justify-end">
+              <div className="flex items-center gap-2 flex-wrap xl:shrink-0 justify-end">
                 {/* Gerar/regerar HTML (completo + prévia) */}
                 {hasPdf && !pdfMissing && !conv && (
                   <Button
@@ -355,10 +383,10 @@ function AdminEbooks() {
                 <Button size="sm" variant="outline" onClick={() => togglePublish(e)}>
                   {e.publicado ? "Despublicar" : "Publicar"}
                 </Button>
-                <Button size="icon" variant="ghost" onClick={() => open(e)}>
+                <Button size="icon" variant="ghost" onClick={() => open(e)} aria-label={`Editar ${e.titulo}`} title="Editar">
                   <Pencil className="size-4" />
                 </Button>
-                <Button size="icon" variant="ghost" onClick={() => remove(e)}>
+                <Button size="icon" variant="ghost" onClick={() => remove(e)} aria-label={`Excluir ${e.titulo}`} title="Excluir">
                   <Trash2 className="size-4 text-destructive" />
                 </Button>
               </div>
