@@ -36,6 +36,7 @@ export const BENEFICIOS = [
   "Timer guiado que alterna correr e caminhar com aviso sonoro",
   "Histórico, gráficos de evolução e sequência de treinos",
   "Certificado digital dos seus primeiros 5km",
+  "Lista de compras saudáveis com produtos sugeridos por categoria",
   "Progresso de leitura salvo em todos os dispositivos",
 ];
 

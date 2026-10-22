@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CoverImage } from "@/components/CoverImage";
 import { type ShelfBook } from "@/lib/shelf";
 import { PLANOS, BENEFICIOS } from "@/lib/plans";
-import { ChevronRight, Zap, Timer, Trophy, BookOpen, Check } from "lucide-react";
+import { ChevronRight, Zap, Timer, Trophy, BookOpen, Check, ShoppingCart } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -59,9 +59,10 @@ function Index() {
             timer guiado. Sem comprar título por título.
           </p>
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-3 max-w-3xl">
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 max-w-5xl">
             <Feature icon={Timer} title="Timer guiado" desc="Alterna correr e caminhar com aviso sonoro." />
             <Feature icon={Zap} title="Plano de 4 semanas" desc="12 treinos progressivos e sem desistência." />
+            <Feature icon={ShoppingCart} title="Compras saudáveis" desc="Monte sua lista com produtos sugeridos e marque o que já comprou." />
             <Feature icon={Trophy} title="Certificado 5km" desc="Conquiste e exporte sua jornada em PDF." />
           </div>
 
